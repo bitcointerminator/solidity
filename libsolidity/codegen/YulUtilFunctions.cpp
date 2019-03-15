@@ -390,36 +390,40 @@ string YulUtilFunctions::arrayDataAreaFunction(ArrayType const& _type)
 string YulUtilFunctions::nextArrayElementFunction(ArrayType const& _type)
 {
 	solAssert(!_type.isByteArray(), "");
-	solAssert(
-		_type.location() == DataLocation::Memory ||
-		_type.location() == DataLocation::Storage,
-		""
-	);
-	solAssert(
-		_type.location() == DataLocation::Memory ||
-		_type.baseType()->storageBytes() > 16,
-		""
-	);
+	if (_type.dataStoredIn(DataLocation::Storage))
+		solAssert(_type.baseType()->storageBytes() > 16, "");
 	string functionName = "array_nextElement_" + _type.identifier();
 	return m_functionCollector->createFunction(functionName, [&]() {
-		if (_type.location() == DataLocation::Memory)
-			return Whiskers(R"(
-				function <functionName>(memPtr) -> nextPtr {
-					nextPtr := add(memPtr, 0x20)
-				}
-			)")
-			("functionName", functionName)
-			.render();
-		else if (_type.location() == DataLocation::Storage)
-			return Whiskers(R"(
-				function <functionName>(slot) -> nextSlot {
-					nextSlot := add(slot, 1)
-				}
-			)")
-			("functionName", functionName)
-			.render();
-		else
-			solAssert(false, "");
+		switch (_type.location())
+		{
+			case DataLocation::Memory:
+				return Whiskers(R"(
+					function <functionName>(memPtr) -> nextPtr {
+						nextPtr := add(memPtr, 0x20)
+					}
+				)")
+				("functionName", functionName)
+				.render();
+			case DataLocation::Storage:
+				return Whiskers(R"(
+					function <functionName>(slot) -> nextSlot {
+						nextSlot := add(slot, 1)
+					}
+				)")
+				("functionName", functionName)
+				.render();
+			case DataLocation::CallData:
+				return Whiskers(R"(
+					function <functionName>(calldataPtr) -> nextPtr {
+						nextPtr := add(calldataPtr, <stride>)
+					}
+				)")
+				("stride", toCompactHexWithPrefix(_type.baseType()->isDynamicallyEncoded() ? 32 : _type.baseType()->calldataEncodedSize()))
+				("functionName", functionName)
+				.render();
+			default:
+				solAssert(false, "");
+		}
 	});
 }
 
