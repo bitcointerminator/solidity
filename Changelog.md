@@ -1,6 +1,7 @@
 ### 0.5.8 (unreleased)
 
 Language Features:
+ * ABIEncoderV2: Implement encoding of calldata arrays and structs.
 
 
 Compiler Features:
