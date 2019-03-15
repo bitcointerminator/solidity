@@ -2,7 +2,7 @@
 ======= gas_test_abiv2/input.sol:C =======
 Gas estimation:
 construction:
-   1140 + 1096600 = 1097740
+   1140 + 1099800 = 1100940
 external:
    a():	530
    b(uint256):	1118
