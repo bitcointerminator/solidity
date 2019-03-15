@@ -330,39 +330,48 @@ string YulUtilFunctions::arrayDataAreaFunction(ArrayType const& _type)
 {
 	string functionName = "array_dataslot_" + _type.identifier();
 	return m_functionCollector->createFunction(functionName, [&]() {
-		if (_type.dataStoredIn(DataLocation::Memory))
+		switch (_type.location())
 		{
-			if (_type.isDynamicallySized())
-				return Whiskers(R"(
-					function <functionName>(memPtr) -> dataPtr {
-						dataPtr := add(memPtr, 0x20)
-					}
-				)")
-				("functionName", functionName)
-				.render();
-			else
-				return Whiskers(R"(
-					function <functionName>(memPtr) -> dataPtr {
-						dataPtr := memPtr
-					}
-				)")
-				("functionName", functionName)
-				.render();
-		}
-		else if (_type.dataStoredIn(DataLocation::Storage))
-		{
-			if (_type.isDynamicallySized())
-			{
-				Whiskers w(R"(
-					function <functionName>(slot) -> dataSlot {
-						mstore(0, slot)
-						dataSlot := keccak256(0, 0x20)
-					}
-				)");
-				w("functionName", functionName);
-				return w.render();
-			}
-			else
+			case DataLocation::Memory:
+				if (_type.isDynamicallySized())
+					return Whiskers(R"(
+						function <functionName>(memPtr) -> dataPtr {
+							dataPtr := add(memPtr, 0x20)
+						}
+					)")
+					("functionName", functionName)
+					.render();
+				else
+					return Whiskers(R"(
+						function <functionName>(memPtr) -> dataPtr {
+							dataPtr := memPtr
+						}
+					)")
+					("functionName", functionName)
+					.render();
+			case DataLocation::Storage:
+				if (_type.isDynamicallySized())
+				{
+					Whiskers w(R"(
+						function <functionName>(slot) -> dataSlot {
+							mstore(0, slot)
+							dataSlot := keccak256(0, 0x20)
+						}
+					)");
+					w("functionName", functionName);
+					return w.render();
+				}
+				else
+				{
+					Whiskers w(R"(
+						function <functionName>(slot) -> dataSlot {
+							dataSlot := slot
+						}
+					)");
+					w("functionName", functionName);
+					return w.render();
+				}
+			case DataLocation::CallData:
 			{
 				Whiskers w(R"(
 					function <functionName>(slot) -> dataSlot {
@@ -372,11 +381,8 @@ string YulUtilFunctions::arrayDataAreaFunction(ArrayType const& _type)
 				w("functionName", functionName);
 				return w.render();
 			}
-		}
-		else
-		{
-			// Not used for calldata
-			solAssert(false, "");
+			default:
+				solAssert(false, "");
 		}
 	});
 }
