@@ -224,6 +224,40 @@ DIR=$(mktemp -d)
 )
 rm -rf "$DIR"
 echo "Done."
+
+printTask "Testing ColonyNetwork..."
+echo "==========================="
+DIR=$(mktemp -d)
+(
+  setup https://github.com/JoinColony/colonyNetwork.git develop "$DIR"
+
+  yarn
+  git submodule update --init
+
+  CONFIG=$(find_truffle_config)
+
+  force_solc_truffle_modules "$SOLJSON"
+  force_solc "$CONFIG" "$DIR"
+
+  cd lib
+  rm -Rf dappsys
+  git clone https://github.com/erak/dappsys-monolithic.git -b callvalue-payable-fix dappsys
+  cd ..
+
+  # Colony tests fail with out-of-gas if optimizer is disabled.
+  for optimize in "{ enabled: true }" "{ enabled: true, details: { yul: true } }"
+  do
+    clean
+    force_solc_settings "$CONFIG" "$optimize" "petersburg"
+
+    yarn run provision:token:contracts
+    verify_compiler_version "$SOLCVERSION"
+    yarn run test:contracts
+  done
+)
+rm -rf "$DIR"
+echo "Done."
+
 echo "All external tests passed."
 
 # Disabled temporarily as it needs to be updated to latest Truffle first.
