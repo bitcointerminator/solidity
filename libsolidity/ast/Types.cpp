@@ -23,6 +23,7 @@
 #include <libsolidity/ast/Types.h>
 
 #include <libsolidity/ast/AST.h>
+#include <libsolidity/ast/TypeProvider.h>
 
 #include <libdevcore/Algorithms.h>
 #include <libdevcore/CommonData.h>
@@ -156,7 +157,7 @@ void StorageOffsets::computeOffsets(TypePointers const& _types)
 	map<size_t, pair<u256, unsigned>> offsets;
 	for (size_t i = 0; i < _types.size(); ++i)
 	{
-		TypePointer const& type = _types[i];
+		Type const* type = _types[i];
 		if (!type->canBeStored())
 			continue;
 		if (byteOffset + type->storageBytes() > 32)
@@ -237,7 +238,7 @@ string identifierList(Range const&& _list)
 	return parenthesizeIdentifier(boost::algorithm::join(_list, ","));
 }
 
-string richIdentifier(TypePointer const& _type)
+string richIdentifier(Type const* _type)
 {
 	return _type ? _type->richIdentifier() : "";
 }
@@ -247,12 +248,12 @@ string identifierList(vector<TypePointer> const& _list)
 	return identifierList(_list | boost::adaptors::transformed(richIdentifier));
 }
 
-string identifierList(TypePointer const& _type)
+string identifierList(Type const* _type)
 {
 	return parenthesizeIdentifier(richIdentifier(_type));
 }
 
-string identifierList(TypePointer const& _type1, TypePointer const& _type2)
+string identifierList(Type const* _type1, Type const* _type2)
 {
 	TypePointers list;
 	list.push_back(_type1);
@@ -291,51 +292,7 @@ string Type::identifier() const
 
 TypePointer Type::fromElementaryTypeName(ElementaryTypeNameToken const& _type)
 {
-	solAssert(TokenTraits::isElementaryTypeName(_type.token()),
-		"Expected an elementary type name but got " + _type.toString()
-	);
-
-	Token token = _type.token();
-	unsigned m = _type.firstNumber();
-	unsigned n = _type.secondNumber();
-
-	switch (token)
-	{
-	case Token::IntM:
-		return make_shared<IntegerType>(m, IntegerType::Modifier::Signed);
-	case Token::UIntM:
-		return make_shared<IntegerType>(m, IntegerType::Modifier::Unsigned);
-	case Token::BytesM:
-		return make_shared<FixedBytesType>(m);
-	case Token::FixedMxN:
-		return make_shared<FixedPointType>(m, n, FixedPointType::Modifier::Signed);
-	case Token::UFixedMxN:
-		return make_shared<FixedPointType>(m, n, FixedPointType::Modifier::Unsigned);
-	case Token::Int:
-		return make_shared<IntegerType>(256, IntegerType::Modifier::Signed);
-	case Token::UInt:
-		return make_shared<IntegerType>(256, IntegerType::Modifier::Unsigned);
-	case Token::Fixed:
-		return make_shared<FixedPointType>(128, 18, FixedPointType::Modifier::Signed);
-	case Token::UFixed:
-		return make_shared<FixedPointType>(128, 18, FixedPointType::Modifier::Unsigned);
-	case Token::Byte:
-		return make_shared<FixedBytesType>(1);
-	case Token::Address:
-		return make_shared<AddressType>(StateMutability::NonPayable);
-	case Token::Bool:
-		return make_shared<BoolType>();
-	case Token::Bytes:
-		return make_shared<ArrayType>(DataLocation::Storage);
-	case Token::String:
-		return make_shared<ArrayType>(DataLocation::Storage, true);
-	//no types found
-	default:
-		solAssert(
-			false,
-			"Unable to convert elementary typename " + _type.toString() + " to type."
-		);
-	}
+	return TypeProvider::get().fromElementaryTypeName(_type);
 }
 
 TypePointer Type::fromElementaryTypeName(string const& _name)
@@ -347,7 +304,7 @@ TypePointer Type::fromElementaryTypeName(string const& _name)
 	unsigned short firstNum, secondNum;
 	tie(token, firstNum, secondNum) = TokenTraits::fromIdentifierOrKeyword(nameParts[0]);
 	auto t = fromElementaryTypeName(ElementaryTypeNameToken(token, firstNum, secondNum));
-	if (auto* ref = dynamic_cast<ReferenceType const*>(t.get()))
+	if (auto* ref = dynamic_cast<ReferenceType const*>(t))
 	{
 		DataLocation location = DataLocation::Storage;
 		if (nameParts.size() == 2)
@@ -368,11 +325,11 @@ TypePointer Type::fromElementaryTypeName(string const& _name)
 		if (nameParts.size() == 2)
 		{
 			if (nameParts[1] == "payable")
-				return make_shared<AddressType>(StateMutability::Payable);
+				return TypeProvider::get().payableAddressType();
 			else
 				solAssert(false, "Invalid state mutability for address type: " + nameParts[1]);
 		}
-		return make_shared<AddressType>(StateMutability::NonPayable);
+		return TypeProvider::get().addressType();
 	}
 	else
 	{
@@ -387,38 +344,38 @@ TypePointer Type::forLiteral(Literal const& _literal)
 	{
 	case Token::TrueLiteral:
 	case Token::FalseLiteral:
-		return make_shared<BoolType>();
+		return TypeProvider::get().boolType();
 	case Token::Number:
 		return RationalNumberType::forLiteral(_literal);
 	case Token::StringLiteral:
-		return make_shared<StringLiteralType>(_literal);
+		return TypeProvider::get().stringLiteralType(_literal.value());
 	default:
-		return TypePointer();
+		return nullptr;
 	}
 }
 
-TypePointer Type::commonType(TypePointer const& _a, TypePointer const& _b)
+TypePointer Type::commonType(Type const* _a, Type const* _b)
 {
 	if (!_a || !_b)
-		return TypePointer();
+		return nullptr;
 	else if (_a->mobileType() && _b->isImplicitlyConvertibleTo(*_a->mobileType()))
 		return _a->mobileType();
 	else if (_b->mobileType() && _a->isImplicitlyConvertibleTo(*_b->mobileType()))
 		return _b->mobileType();
 	else
-		return TypePointer();
+		return nullptr;
 }
 
 MemberList const& Type::members(ContractDefinition const* _currentScope) const
 {
-	if (!m_members[_currentScope])
+	if (!m_members.count(_currentScope))
 	{
 		MemberList::MemberMap members = nativeMembers(_currentScope);
 		if (_currentScope)
 			members += boundFunctions(*this, *_currentScope);
-		m_members[_currentScope] = unique_ptr<MemberList>(new MemberList(move(members)));
+		m_members.emplace(_currentScope, MemberList{move(members)});
 	}
-	return *m_members[_currentScope];
+	return m_members[_currentScope];
 }
 
 TypePointer Type::fullEncodingType(bool _inLibraryCall, bool _encoderV2, bool) const
@@ -434,18 +391,18 @@ TypePointer Type::fullEncodingType(bool _inLibraryCall, bool _encoderV2, bool) c
 	if (_inLibraryCall && encodingType->dataStoredIn(DataLocation::Storage))
 		return encodingType;
 	TypePointer baseType = encodingType;
-	while (auto const* arrayType = dynamic_cast<ArrayType const*>(baseType.get()))
+	while (auto const* arrayType = dynamic_cast<ArrayType const*>(baseType))
 		baseType = arrayType->baseType();
-	if (dynamic_cast<StructType const*>(baseType.get()))
+	if (dynamic_cast<StructType const*>(baseType))
 		if (!_encoderV2)
-			return TypePointer();
+			return nullptr;
 	return encodingType;
 }
 
 MemberList::MemberMap Type::boundFunctions(Type const& _type, ContractDefinition const& _scope)
 {
 	// Normalise data location of type.
-	TypePointer type = ReferenceType::copyForLocationIfReference(DataLocation::Storage, _type.shared_from_this());
+	TypePointer type = ReferenceType::copyForLocationIfReference(DataLocation::Storage, &_type);
 	set<Declaration const*> seenFunctions;
 	MemberList::MemberMap members;
 	for (ContractDefinition const* contract: _scope.annotation().linearizedBaseContracts)
@@ -528,16 +485,16 @@ u256 AddressType::literalValue(Literal const* _literal) const
 
 TypeResult AddressType::unaryOperatorResult(Token _operator) const
 {
-	return _operator == Token::Delete ? make_shared<TupleType>() : TypePointer();
+	return _operator == Token::Delete ? make_shared<TupleType>() : nullptr;
 }
 
 
-TypeResult AddressType::binaryOperatorResult(Token _operator, TypePointer const& _other) const
+TypeResult AddressType::binaryOperatorResult(Token _operator, Type const* _other) const
 {
 	if (!TokenTraits::isCompareOp(_operator))
 		return TypeResult::err("Arithmetic operations on addresses are not supported. Convert to integer first before using them.");
 
-	return Type::commonType(shared_from_this(), _other);
+	return Type::commonType(this, _other);
 }
 
 bool AddressType::operator==(Type const& _other) const
@@ -636,7 +593,7 @@ TypeResult IntegerType::unaryOperatorResult(Token _operator) const
 	// we allow -, ++ and --
 	else if (_operator == Token::Sub || _operator == Token::Inc ||
 		_operator == Token::Dec || _operator == Token::BitNot)
-		return TypeResult{shared_from_this()};
+		return TypeResult{this};
 	else
 		return TypeResult::err("");
 }
@@ -671,32 +628,32 @@ bigint IntegerType::maxValue() const
 		return (bigint(1) << m_bits) - 1;
 }
 
-TypeResult IntegerType::binaryOperatorResult(Token _operator, TypePointer const& _other) const
+TypeResult IntegerType::binaryOperatorResult(Token _operator, Type const* _other) const
 {
 	if (
 		_other->category() != Category::RationalNumber &&
 		_other->category() != Category::FixedPoint &&
 		_other->category() != category()
 	)
-		return TypePointer();
+		return nullptr;
 	if (TokenTraits::isShiftOp(_operator))
 	{
 		// Shifts are not symmetric with respect to the type
 		if (isValidShiftAndAmountType(_operator, *_other))
-			return shared_from_this();
+			return this;
 		else
-			return TypePointer();
+			return nullptr;
 	}
 
-	auto commonType = Type::commonType(shared_from_this(), _other); //might be an integer or fixed point
+	auto commonType = Type::commonType(this, _other); //might be an integer or fixed point
 	if (!commonType)
-		return TypePointer();
+		return nullptr;
 
 	// All integer types can be compared
 	if (TokenTraits::isCompareOp(_operator))
 		return commonType;
 	if (TokenTraits::isBooleanOp(_operator))
-		return TypePointer();
+		return nullptr;
 	if (auto intType = dynamic_pointer_cast<IntegerType const>(commonType))
 	{
 		if (Token::Exp == _operator && intType->isSigned())
@@ -704,7 +661,7 @@ TypeResult IntegerType::binaryOperatorResult(Token _operator, TypePointer const&
 	}
 	else if (auto fixType = dynamic_pointer_cast<FixedPointType const>(commonType))
 		if (Token::Exp == _operator)
-			return TypePointer();
+			return nullptr;
 	return commonType;
 }
 
@@ -755,9 +712,9 @@ TypeResult FixedPointType::unaryOperatorResult(Token _operator) const
 	case Token::Inc:
 	case Token::Dec:
 		// for fixed, we allow +, -, ++ and --
-		return shared_from_this();
+		return this;
 	default:
-		return TypePointer();
+		return nullptr;
 	}
 }
 
@@ -792,18 +749,18 @@ bigint FixedPointType::minIntegerValue() const
 		return bigint(0);
 }
 
-TypeResult FixedPointType::binaryOperatorResult(Token _operator, TypePointer const& _other) const
+TypeResult FixedPointType::binaryOperatorResult(Token _operator, Type const* _other) const
 {
-	auto commonType = Type::commonType(shared_from_this(), _other);
+	auto commonType = Type::commonType(this, _other);
 
 	if (!commonType)
-		return TypePointer();
+		return nullptr;
 
 	// All fixed types can be compared
 	if (TokenTraits::isCompareOp(_operator))
 		return commonType;
 	if (TokenTraits::isBitOp(_operator) || TokenTraits::isBooleanOp(_operator) || _operator == Token::Exp)
-		return TypePointer();
+		return nullptr;
 	return commonType;
 }
 
@@ -871,7 +828,7 @@ TypePointer RationalNumberType::forLiteral(Literal const& _literal)
 
 		return make_shared<RationalNumberType>(get<1>(validLiteral), compatibleBytesType);
 	}
-	return TypePointer();
+	return nullptr;
 }
 
 tuple<bool, rational> RationalNumberType::isValidLiteral(Literal const& _literal)
@@ -1030,7 +987,7 @@ TypeResult RationalNumberType::unaryOperatorResult(Token _operator) const
 	{
 	case Token::BitNot:
 		if (isFractional())
-			return TypePointer();
+			return nullptr;
 		value = ~m_value.numerator();
 		break;
 	case Token::Add:
@@ -1040,24 +997,24 @@ TypeResult RationalNumberType::unaryOperatorResult(Token _operator) const
 		value = -(m_value);
 		break;
 	case Token::After:
-		return shared_from_this();
+		return this;
 	default:
-		return TypePointer();
+		return nullptr;
 	}
 	return TypeResult(make_shared<RationalNumberType>(value));
 }
 
-TypeResult RationalNumberType::binaryOperatorResult(Token _operator, TypePointer const& _other) const
+TypeResult RationalNumberType::binaryOperatorResult(Token _operator, Type const* _other) const
 {
 	if (_other->category() == Category::Integer || _other->category() == Category::FixedPoint)
 	{
-		auto commonType = Type::commonType(shared_from_this(), _other);
+		auto commonType = Type::commonType(this, _other);
 		if (!commonType)
-			return TypePointer();
+			return nullptr;
 		return commonType->binaryOperatorResult(_operator, _other);
 	}
 	else if (_other->category() != category())
-		return TypePointer();
+		return nullptr;
 
 	RationalNumberType const& other = dynamic_cast<RationalNumberType const&>(*_other);
 	if (TokenTraits::isCompareOp(_operator))
@@ -1068,7 +1025,7 @@ TypeResult RationalNumberType::binaryOperatorResult(Token _operator, TypePointer
 		TypePointer thisMobile = mobileType();
 		TypePointer otherMobile = other.mobileType();
 		if (!thisMobile || !otherMobile)
-			return TypePointer();
+			return nullptr;
 		return thisMobile->binaryOperatorResult(_operator, otherMobile);
 	}
 	else
@@ -1080,17 +1037,17 @@ TypeResult RationalNumberType::binaryOperatorResult(Token _operator, TypePointer
 		//bit operations will only be enabled for integers and fixed types that resemble integers
 		case Token::BitOr:
 			if (fractional)
-				return TypePointer();
+				return nullptr;
 			value = m_value.numerator() | other.m_value.numerator();
 			break;
 		case Token::BitXor:
 			if (fractional)
-				return TypePointer();
+				return nullptr;
 			value = m_value.numerator() ^ other.m_value.numerator();
 			break;
 		case Token::BitAnd:
 			if (fractional)
-				return TypePointer();
+				return nullptr;
 			value = m_value.numerator() & other.m_value.numerator();
 			break;
 		case Token::Add:
@@ -1104,13 +1061,13 @@ TypeResult RationalNumberType::binaryOperatorResult(Token _operator, TypePointer
 			break;
 		case Token::Div:
 			if (other.m_value == rational(0))
-				return TypePointer();
+				return nullptr;
 			else
 				value = m_value / other.m_value;
 			break;
 		case Token::Mod:
 			if (other.m_value == rational(0))
-				return TypePointer();
+				return nullptr;
 			else if (fractional)
 			{
 				rational tempValue = m_value / other.m_value;
@@ -1122,7 +1079,7 @@ TypeResult RationalNumberType::binaryOperatorResult(Token _operator, TypePointer
 		case Token::Exp:
 		{
 			if (other.isFractional())
-				return TypePointer();
+				return nullptr;
 			solAssert(other.m_value.denominator() == 1, "");
 			bigint const& exp = other.m_value.numerator();
 
@@ -1140,7 +1097,7 @@ TypeResult RationalNumberType::binaryOperatorResult(Token _operator, TypePointer
 			else
 			{
 				if (abs(exp) > numeric_limits<uint32_t>::max())
-					return TypePointer(); // This will need too much memory to represent.
+					return nullptr; // This will need too much memory to represent.
 
 				uint32_t absExp = bigint(abs(exp)).convert_to<uint32_t>();
 
@@ -1170,18 +1127,18 @@ TypeResult RationalNumberType::binaryOperatorResult(Token _operator, TypePointer
 		case Token::SHL:
 		{
 			if (fractional)
-				return TypePointer();
+				return nullptr;
 			else if (other.m_value < 0)
-				return TypePointer();
+				return nullptr;
 			else if (other.m_value > numeric_limits<uint32_t>::max())
-				return TypePointer();
+				return nullptr;
 			if (m_value.numerator() == 0)
 				value = 0;
 			else
 			{
 				uint32_t exponent = other.m_value.numerator().convert_to<uint32_t>();
 				if (!fitsPrecisionBase2(abs(m_value.numerator()), exponent))
-					return TypePointer();
+					return nullptr;
 				value = m_value.numerator() * boost::multiprecision::pow(bigint(2), exponent);
 			}
 			break;
@@ -1191,11 +1148,11 @@ TypeResult RationalNumberType::binaryOperatorResult(Token _operator, TypePointer
 		case Token::SAR:
 		{
 			if (fractional)
-				return TypePointer();
+				return nullptr;
 			else if (other.m_value < 0)
-				return TypePointer();
+				return nullptr;
 			else if (other.m_value > numeric_limits<uint32_t>::max())
-				return TypePointer();
+				return nullptr;
 			if (m_value.numerator() == 0)
 				value = 0;
 			else
@@ -1221,7 +1178,7 @@ TypeResult RationalNumberType::binaryOperatorResult(Token _operator, TypePointer
 			break;
 		}
 		default:
-			return TypePointer();
+			return nullptr;
 		}
 
 		// verify that numerator and denominator fit into 4096 bit after every operation
@@ -1368,6 +1325,11 @@ StringLiteralType::StringLiteralType(Literal const& _literal):
 {
 }
 
+StringLiteralType::StringLiteralType(ASTString const& _value):
+	m_value{_value}
+{
+}
+
 BoolResult StringLiteralType::isImplicitlyConvertibleTo(Type const& _convertTo) const
 {
 	if (auto fixedBytes = dynamic_cast<FixedBytesType const*>(&_convertTo))
@@ -1445,35 +1407,35 @@ TypeResult FixedBytesType::unaryOperatorResult(Token _operator) const
 	if (_operator == Token::Delete)
 		return TypeResult(make_shared<TupleType>());
 	else if (_operator == Token::BitNot)
-		return shared_from_this();
+		return this;
 
-	return TypePointer();
+	return nullptr;
 }
 
-TypeResult FixedBytesType::binaryOperatorResult(Token _operator, TypePointer const& _other) const
+TypeResult FixedBytesType::binaryOperatorResult(Token _operator, Type const* _other) const
 {
 	if (TokenTraits::isShiftOp(_operator))
 	{
 		if (isValidShiftAndAmountType(_operator, *_other))
-			return shared_from_this();
+			return this;
 		else
-			return TypePointer();
+			return nullptr;
 	}
 
-	auto commonType = dynamic_pointer_cast<FixedBytesType const>(Type::commonType(shared_from_this(), _other));
+	auto commonType = dynamic_pointer_cast<FixedBytesType const>(Type::commonType(this, _other));
 	if (!commonType)
-		return TypePointer();
+		return nullptr;
 
 	// FixedBytes can be compared and have bitwise operators applied to them
 	if (TokenTraits::isCompareOp(_operator) || TokenTraits::isBitOp(_operator))
 		return TypeResult(commonType);
 
-	return TypePointer();
+	return nullptr;
 }
 
 MemberList::MemberMap FixedBytesType::nativeMembers(ContractDefinition const*) const
 {
-	return MemberList::MemberMap{MemberList::Member{"length", make_shared<IntegerType>(8)}};
+	return MemberList::MemberMap{MemberList::Member{"length", TypeProvider::get().uintType(8)}};
 }
 
 string FixedBytesType::richIdentifier() const
@@ -1503,18 +1465,21 @@ u256 BoolType::literalValue(Literal const* _literal) const
 TypeResult BoolType::unaryOperatorResult(Token _operator) const
 {
 	if (_operator == Token::Delete)
-		return TypeResult(make_shared<TupleType>());
-	return (_operator == Token::Not) ? shared_from_this() : TypePointer();
+		return TypeProvider::get().emptyTupleType(); // TODO: Lag of understanding.
+	else if (_operator == Token::Not)
+		return this;
+	else
+		return nullptr;
 }
 
-TypeResult BoolType::binaryOperatorResult(Token _operator, TypePointer const& _other) const
+TypeResult BoolType::binaryOperatorResult(Token _operator, Type const* _other) const
 {
 	if (category() != _other->category())
-		return TypePointer();
+		return nullptr;
 	if (_operator == Token::Equal || _operator == Token::NotEqual || _operator == Token::And || _operator == Token::Or)
 		return _other;
 	else
-		return TypePointer();
+		return nullptr;
 }
 
 BoolResult ContractType::isImplicitlyConvertibleTo(Type const& _convertTo) const
@@ -1550,36 +1515,45 @@ bool ContractType::isPayable() const
 TypeResult ContractType::unaryOperatorResult(Token _operator) const
 {
 	if (isSuper())
-		return TypePointer{};
-	return _operator == Token::Delete ? make_shared<TupleType>() : TypePointer();
+		return nullptr;
+	else if (_operator == Token::Delete)
+		return TypeProvider::get().emptyTupleType(); // TODO: Lag of understanding.
+	else
+		return nullptr;
+}
+
+Type const* ReferenceType::withLocation(DataLocation _location, bool _isPointer) const
+{
+	return TypeProvider::get().withLocation(this, _location, _isPointer);
 }
 
 TypeResult ReferenceType::unaryOperatorResult(Token _operator) const
 {
 	if (_operator != Token::Delete)
-		return TypePointer();
+		return nullptr;
 	// delete can be used on everything except calldata references or storage pointers
 	// (storage references are ok)
 	switch (location())
 	{
 	case DataLocation::CallData:
-		return TypePointer();
+		return nullptr;
 	case DataLocation::Memory:
-		return TypeResult(make_shared<TupleType>());
+		return TypeProvider::get().emptyTupleType();
 	case DataLocation::Storage:
-		return m_isPointer ? TypePointer() : make_shared<TupleType>();
+		return m_isPointer ? nullptr : TypeProvider::get().emptyTupleType();
 	}
-	return TypePointer();
+	return nullptr;
 }
 
-TypePointer ReferenceType::copyForLocationIfReference(DataLocation _location, TypePointer const& _type)
+TypePointer ReferenceType::copyForLocationIfReference(DataLocation _location, Type const* _type)
 {
-	if (auto type = dynamic_cast<ReferenceType const*>(_type.get()))
-		return type->copyForLocation(_location, false);
-	return _type;
+	return TypeProvider::get().withLocationIfReference(type, _location, false);
+	// if (auto type = dynamic_cast<ReferenceType const*>(_type.get()))
+	// 	return TypeProvider::get().withLocation(type, _location, false);
+	// return _type;
 }
 
-TypePointer ReferenceType::copyForLocationIfReference(TypePointer const& _type) const
+TypePointer ReferenceType::copyForLocationIfReference(Type const* _type) const
 {
 	return copyForLocationIfReference(m_location, _type);
 }
@@ -1646,8 +1620,8 @@ BoolResult ArrayType::isImplicitlyConvertibleTo(Type const& _convertTo) const
 		// require that the base type is the same, not only convertible.
 		// This disallows assignment of nested dynamic arrays from storage to memory for now.
 		if (
-			*copyForLocationIfReference(location(), baseType()) !=
-			*copyForLocationIfReference(location(), convertTo.baseType())
+			*withLocationIfReference(location(), baseType()) !=
+			*withLocationIfReference(location(), convertTo.baseType())
 		)
 			return false;
 		if (isDynamicallySized() != convertTo.isDynamicallySized())
@@ -1856,7 +1830,7 @@ MemberList::MemberMap ArrayType::nativeMembers(ContractDefinition const*) const
 TypePointer ArrayType::encodingType() const
 {
 	if (location() == DataLocation::Storage)
-		return make_shared<IntegerType>(256);
+		return TypeProvider::get().uintType(256);
 	else
 		return this->copyForLocation(DataLocation::Memory, true);
 }
@@ -1864,9 +1838,9 @@ TypePointer ArrayType::encodingType() const
 TypePointer ArrayType::decodingType() const
 {
 	if (location() == DataLocation::Storage)
-		return make_shared<IntegerType>(256);
+		return TypeProvider::get().uintType(256);
 	else
-		return shared_from_this();
+		return this;
 }
 
 TypeResult ArrayType::interfaceType(bool _inLibrary) const
@@ -1886,7 +1860,7 @@ TypeResult ArrayType::interfaceType(bool _inLibrary) const
 		result = baseInterfaceType;
 	}
 	else if (_inLibrary && location() == DataLocation::Storage)
-		result = shared_from_this();
+		result = this;
 	else if (m_arrayKind != ArrayKind::Ordinary)
 		result = this->copyForLocation(DataLocation::Memory, true);
 	else if (isDynamicallySized())
@@ -1911,9 +1885,9 @@ u256 ArrayType::memorySize() const
 	return u256(size);
 }
 
-TypePointer ArrayType::copyForLocation(DataLocation _location, bool _isPointer) const
+std::unique_ptr<ReferenceType> ArrayType::copyForLocation(DataLocation _location, bool _isPointer) const
 {
-	auto copy = make_shared<ArrayType>(_location);
+	auto copy = make_unique<ArrayType>(_location);
 	copy->m_isPointer = _isPointer;
 	copy->m_arrayKind = m_arrayKind;
 	copy->m_baseType = copy->copyForLocationIfReference(m_baseType);
@@ -2205,9 +2179,9 @@ TypeResult StructType::interfaceType(bool _inLibrary) const
 		if (!result.message().empty())
 			m_interfaceType_library = result;
 		else if (location() == DataLocation::Storage)
-			m_interfaceType_library = shared_from_this();
+			m_interfaceType_library = this;
 		else
-			m_interfaceType_library = copyForLocation(DataLocation::Memory, true);
+			m_interfaceType_library = TypeProvider::get().withLocation(this, DataLocation::Memory, true);
 
 		if (m_recursive.get())
 			m_interfaceType = TypeResult::err(recursiveErrMsg);
@@ -2225,9 +2199,9 @@ TypeResult StructType::interfaceType(bool _inLibrary) const
 	return *m_interfaceType;
 }
 
-TypePointer StructType::copyForLocation(DataLocation _location, bool _isPointer) const
+std::unique_ptr<ReferenceType> StructType::copyForLocation(DataLocation _location, bool _isPointer) const
 {
-	auto copy = make_shared<StructType>(m_struct, _location);
+	auto copy = make_unique<StructType>(m_struct, _location);
 	copy->m_isPointer = _isPointer;
 	return copy;
 }
@@ -2314,7 +2288,7 @@ set<string> StructType::membersMissingInMemory() const
 
 TypeResult EnumType::unaryOperatorResult(Token _operator) const
 {
-	return _operator == Token::Delete ? make_shared<TupleType>() : TypePointer();
+	return _operator == Token::Delete ? make_shared<TupleType>() : nullptr;
 }
 
 string EnumType::richIdentifier() const
@@ -2437,16 +2411,16 @@ TypePointer TupleType::mobileType() const
 		{
 			auto mt = c->mobileType();
 			if (!mt)
-				return TypePointer();
+				return nullptr;
 			mobiles.push_back(mt);
 		}
 		else
-			mobiles.push_back(TypePointer());
+			mobiles.push_back(nullptr);
 	}
 	return make_shared<TupleType>(mobiles);
 }
 
-TypePointer TupleType::closestTemporaryType(TypePointer const& _targetType) const
+TypePointer TupleType::closestTemporaryType(Type const* _targetType) const
 {
 	solAssert(!!_targetType, "");
 	TypePointers const& targetComponents = dynamic_cast<TupleType const&>(*_targetType).components();
@@ -2787,17 +2761,17 @@ TypeResult FunctionType::unaryOperatorResult(Token _operator) const
 {
 	if (_operator == Token::Delete)
 		return TypeResult(make_shared<TupleType>());
-	return TypePointer();
+	return nullptr;
 }
 
-TypeResult FunctionType::binaryOperatorResult(Token _operator, TypePointer const& _other) const
+TypeResult FunctionType::binaryOperatorResult(Token _operator, Type const* _other) const
 {
 	if (_other->category() != category() || !(_operator == Token::Equal || _operator == Token::NotEqual))
-		return TypePointer();
+		return nullptr;
 	FunctionType const& other = dynamic_cast<FunctionType const&>(*_other);
 	if (kind() == Kind::Internal && other.kind() == Kind::Internal && sizeOnStack() == 1 && other.sizeOnStack() == 1)
-		return commonType(shared_from_this(), _other);
-	return TypePointer();
+		return commonType(this, _other);
+	return nullptr;
 }
 
 string FunctionType::canonicalName() const
@@ -2999,22 +2973,22 @@ TypePointer FunctionType::encodingType() const
 {
 	// Only external functions can be encoded, internal functions cannot leave code boundaries.
 	if (m_kind == Kind::External)
-		return shared_from_this();
+		return this;
 	else
-		return TypePointer();
+		return nullptr;
 }
 
 TypeResult FunctionType::interfaceType(bool /*_inLibrary*/) const
 {
 	if (m_kind == Kind::External)
-		return shared_from_this();
+		return this;
 	else
 		return TypeResult::err("Internal type is not allowed for public or external functions.");
 }
 
 bool FunctionType::canTakeArguments(
 	FuncCallArguments const& _arguments,
-	TypePointer const& _selfType
+	Type const* _selfType
 ) const
 {
 	solAssert(!bound() || _selfType, "");
@@ -3032,7 +3006,7 @@ bool FunctionType::canTakeArguments(
 			_arguments.types.cbegin(),
 			_arguments.types.cend(),
 			paramTypes.cbegin(),
-			[](TypePointer const& argumentType, TypePointer const& parameterType)
+			[](Type const* argumentType, Type const* parameterType)
 			{
 				return argumentType->isImplicitlyConvertibleTo(*parameterType);
 			}
@@ -3069,7 +3043,7 @@ bool FunctionType::hasEqualParameterTypes(FunctionType const& _other) const
 		m_parameterTypes.cbegin(),
 		m_parameterTypes.cend(),
 		_other.m_parameterTypes.cbegin(),
-		[](TypePointer const& _a, TypePointer const& _b) -> bool { return *_a == *_b; }
+		[](Type const* _a, Type const* _b) -> bool { return *_a == *_b; }
 	);
 }
 
@@ -3081,7 +3055,7 @@ bool FunctionType::hasEqualReturnTypes(FunctionType const& _other) const
 		m_returnParameterTypes.cbegin(),
 		m_returnParameterTypes.cend(),
 		_other.m_returnParameterTypes.cbegin(),
-		[](TypePointer const& _a, TypePointer const& _b) -> bool { return *_a == *_b; }
+		[](Type const* _a, Type const* _b) -> bool { return *_a == *_b; }
 	);
 }
 
@@ -3244,7 +3218,7 @@ FunctionTypePointer FunctionType::asCallableFunction(bool _inLibrary, bool _boun
 	);
 }
 
-TypePointer const& FunctionType::selfType() const
+Type const* FunctionType::selfType() const
 {
 	solAssert(bound(), "Function is not bound.");
 	solAssert(m_parameterTypes.size() > 0, "Function has no self type.");
@@ -3320,7 +3294,7 @@ TypeResult MappingType::interfaceType(bool _inLibrary) const
 	else
 		return TypeResult::err("Only libraries are allowed to use the mapping type in public or external functions.");
 
-	return shared_from_this();
+	return this;
 }
 
 string TypeType::richIdentifier() const
@@ -3421,7 +3395,7 @@ bool ModifierType::operator==(Type const& _other) const
 
 	if (m_parameterTypes.size() != other.m_parameterTypes.size())
 		return false;
-	auto typeCompare = [](TypePointer const& _a, TypePointer const& _b) -> bool { return *_a == *_b; };
+	auto typeCompare = [](Type const* _a, Type const* _b) -> bool { return *_a == *_b; };
 
 	if (!equal(
 		m_parameterTypes.cbegin(),
@@ -3623,3 +3597,5 @@ TypePointer MagicType::typeArgument() const
 	solAssert(m_typeArgument, "");
 	return m_typeArgument;
 }
+
+FixedBytesType const ArrayType::m_baseTypeForBytes{1};

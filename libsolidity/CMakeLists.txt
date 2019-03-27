@@ -1,5 +1,24 @@
 # Until we have a clear separation, libyul has to be included here
 set(sources
+	ast/TypeProvider.cpp
+	ast/TypeProvider.h
+
+	ast/Types.cpp
+	ast/Types.h
+	ast/AST.cpp
+	ast/AST.h
+	ast/AST_accept.h
+	ast/ASTAnnotations.cpp
+	ast/ASTAnnotations.h
+	ast/ASTEnums.h
+	ast/ASTForward.h
+	ast/ASTJsonConverter.cpp
+	ast/ASTJsonConverter.h
+	ast/ASTPrinter.cpp
+	ast/ASTPrinter.h
+	ast/ASTVisitor.h
+	ast/ExperimentalFeatures.h
+
 	analysis/ConstantEvaluator.cpp
 	analysis/ConstantEvaluator.h
 	analysis/ContractLevelChecker.cpp
@@ -32,21 +51,6 @@ set(sources
 	analysis/TypeChecker.h
 	analysis/ViewPureChecker.cpp
 	analysis/ViewPureChecker.h
-	ast/AST.cpp
-	ast/AST.h
-	ast/AST_accept.h
-	ast/ASTAnnotations.cpp
-	ast/ASTAnnotations.h
-	ast/ASTEnums.h
-	ast/ASTForward.h
-	ast/ASTJsonConverter.cpp
-	ast/ASTJsonConverter.h
-	ast/ASTPrinter.cpp
-	ast/ASTPrinter.h
-	ast/ASTVisitor.h
-	ast/ExperimentalFeatures.h
-	ast/Types.cpp
-	ast/Types.h
 	codegen/ABIFunctions.cpp
 	codegen/ABIFunctions.h
 	codegen/ArrayUtils.cpp

@@ -45,7 +45,7 @@ namespace solidity
 {
 
 class Type;
-using TypePointer = std::shared_ptr<Type const>;
+using TypePointer = Type const*;
 
 struct ASTAnnotation
 {
