@@ -28,6 +28,7 @@
 #include <libsolidity/ast/ASTForward.h>
 #include <libsolidity/ast/ASTVisitor.h>
 #include <libsolidity/ast/Types.h>
+#include <libsolidity/ast/TypeProvider.h>
 
 namespace langutil
 {
@@ -50,6 +51,7 @@ public:
 	/// @param _errorReporter provides the error logging functionality.
 	TypeChecker(langutil::EVMVersion _evmVersion, langutil::ErrorReporter& _errorReporter):
 		m_evmVersion(_evmVersion),
+		m_typeProvider{TypeProvider::get()}, // TODO: Pass it down to TypeChecker instead.
 		m_errorReporter(_errorReporter)
 	{}
 
@@ -165,6 +167,8 @@ private:
 
 	/// Flag indicating whether we are currently inside a StructDefinition.
 	bool m_insideStruct = false;
+
+	TypeProvider& m_typeProvider;
 
 	langutil::ErrorReporter& m_errorReporter;
 };

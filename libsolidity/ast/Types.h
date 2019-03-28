@@ -533,11 +533,11 @@ public:
 	TypePointer mobileType() const override;
 
 	/// @returns the smallest integer type that can hold the value or an empty pointer if not possible.
-	std::shared_ptr<IntegerType const> integerType() const;
+	IntegerType const* integerType() const;
 	/// @returns the smallest fixed type that can  hold the value or incurs the least precision loss,
 	/// unless the value was truncated, then a suitable type will be chosen to indicate such event.
 	/// If the integer part does not fit, returns an empty pointer.
-	std::shared_ptr<FixedPointType const> fixedPointType() const;
+	FixedPointType const* fixedPointType() const;
 
 	/// @returns true if the value is not an integer.
 	bool isFractional() const { return m_value.denominator() != 1; }
@@ -701,7 +701,7 @@ public:
 	/// @returns a copy of @a _type having the same location as this (and is not a pointer type)
 	/// if _type is a reference type and an unmodified copy of _type otherwise.
 	/// This function is mostly useful to modify inner types appropriately.
-	static Type* copyForLocationIfReference(DataLocation _location, Type const* _type);
+	static Type const* copyForLocationIfReference(DataLocation _location, Type const* _type);
 
 	Type const* withLocation(DataLocation _location, bool _isPointer) const;
 
@@ -1004,6 +1004,9 @@ class TupleType: public Type
 public:
 	Category category() const override { return Category::Tuple; }
 	explicit TupleType(std::vector<TypePointer> const& _types = std::vector<TypePointer>()): m_components(_types) {}
+	TupleType(TupleType&&) = default;
+	TupleType& operator=(TupleType&) = default;
+
 	BoolResult isImplicitlyConvertibleTo(Type const& _other) const override;
 	std::string richIdentifier() const override;
 	bool operator==(Type const& _other) const override;
@@ -1411,8 +1414,10 @@ public:
 	Category category() const override { return Category::Magic; }
 
 	explicit MagicType(Kind _kind): m_kind(_kind) {}
+	explicit MagicType(Type const* _metaTypeArg): m_kind{Kind::MetaType}, m_typeArgument{_metaTypeArg} {}
+
 	/// Factory function for meta type
-	static std::shared_ptr<MagicType> metaType(TypePointer _type);
+	static MagicType const* metaType(TypePointer _type);
 
 	TypeResult binaryOperatorResult(Token, Type const*) const override
 	{

@@ -23,6 +23,7 @@
 #include <libsolidity/analysis/ConstantEvaluator.h>
 
 #include <libsolidity/ast/AST.h>
+#include <libsolidity/ast/TypeProvider.h>
 #include <liblangutil/ErrorReporter.h>
 
 using namespace std;
@@ -56,7 +57,7 @@ void ConstantEvaluator::endVisit(BinaryOperation const& _operation)
 		setType(
 			_operation,
 			TokenTraits::isCompareOp(_operation.getOperator()) ?
-			make_shared<BoolType>() :
+			TypeProvider::get().boolType() :
 			commonType
 		);
 	}

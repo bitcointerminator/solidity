@@ -22,6 +22,7 @@
 #include <libsolidity/analysis/ContractLevelChecker.h>
 
 #include <libsolidity/ast/AST.h>
+#include <libsolidity/ast/TypeProvider.h>
 #include <libsolidity/analysis/TypeChecker.h>
 #include <liblangutil/ErrorReporter.h>
 #include <boost/range/adaptor/reversed.hpp>
@@ -244,13 +245,13 @@ void ContractLevelChecker::checkAbstractFunctions(ContractDefinition const& _con
 	{
 		for (VariableDeclaration const* v: contract->stateVariables())
 			if (v->isPartOfExternalInterface())
-				registerFunction(*v, make_shared<FunctionType>(*v), true);
+				registerFunction(*v, TypeProvider::get().functionType(*v), true);
 
 		for (FunctionDefinition const* function: contract->definedFunctions())
 			if (!function->isConstructor())
 				registerFunction(
 					*function,
-					make_shared<FunctionType>(*function)->asCallableFunction(false),
+					TypeProvider::get().functionType(*function)->asCallableFunction(false),
 					function->isImplemented()
 				);
 	}
