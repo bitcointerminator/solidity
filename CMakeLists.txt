@@ -64,6 +64,3 @@ endif()
 if (TESTS AND NOT EMSCRIPTEN)
 	add_subdirectory(test)
 endif()
-
-add_executable(memleaktest memleaktest.cpp)
-target_link_libraries(memleaktest PRIVATE solidity)
