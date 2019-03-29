@@ -23,6 +23,7 @@
 #include <libsolidity/codegen/CompilerUtils.h>
 
 #include <libsolidity/ast/AST.h>
+#include <libsolidity/ast/TypeProvider.h>
 #include <libsolidity/codegen/ABIFunctions.h>
 #include <libsolidity/codegen/ArrayUtils.h>
 #include <libsolidity/codegen/LValue.h>
@@ -89,7 +90,7 @@ void CompilerUtils::revertWithStringData(Type const& _argumentType)
 	m_context << Instruction::DUP2 << Instruction::MSTORE;
 	m_context << u256(4) << Instruction::ADD;
 	// Stack: <string data> <mem pos of encoding start>
-	abiEncode({_argumentType.shared_from_this()}, {make_shared<ArrayType>(DataLocation::Memory, true)});
+	abiEncode({&_argumentType}, {TypeProvider::get().arrayType(DataLocation::Memory, true)});
 	toSizeAfterFreeMemoryPointer();
 	m_context << Instruction::REVERT;
 }
@@ -311,7 +312,7 @@ void CompilerUtils::abiDecode(TypePointers const& _typeParameters, bool _fromMem
 			else
 			{
 				// first load from calldata and potentially convert to memory if arrayType is memory
-				TypePointer calldataType = arrayType.copyForLocation(DataLocation::CallData, false);
+				TypePointer calldataType = TypeProvider::get().withLocation(&arrayType, DataLocation::CallData, false);
 				if (calldataType->isDynamicallySized())
 				{
 					// put on stack: data_pointer length
@@ -454,7 +455,7 @@ void CompilerUtils::encodeToMemory(
 				type = _givenTypes[i]; // delay conversion
 			else
 				convertType(*_givenTypes[i], *targetType, true);
-			if (auto arrayType = dynamic_cast<ArrayType const*>(type.get()))
+			if (auto arrayType = dynamic_cast<ArrayType const*>(type))
 				ArrayUtils(m_context).copyArrayToMemory(*arrayType, _padToWordBoundaries);
 			else
 				storeInMemoryDynamic(*type, _padToWordBoundaries);
@@ -1012,7 +1013,7 @@ void CompilerUtils::convertType(
 				m_context << Instruction::DUP1;
 				m_context << Instruction::CALLDATASIZE;
 				m_context << Instruction::SUB;
-				abiDecode({targetType.shared_from_this()}, false);
+				abiDecode({&targetType}, false);
 				break;
 			}
 			case DataLocation::Memory:
@@ -1145,7 +1146,7 @@ void CompilerUtils::pushZeroValue(Type const& _type)
 			return;
 		}
 
-	TypePointer type = _type.shared_from_this();
+	TypePointer type = &_type;
 	m_context.callLowLevelFunction(
 		"$pushZeroValue_" + referenceType->identifier(),
 		0,
@@ -1155,13 +1156,13 @@ void CompilerUtils::pushZeroValue(Type const& _type)
 			utils.allocateMemory(max(32u, type->calldataEncodedSize()));
 			_context << Instruction::DUP1;
 
-			if (auto structType = dynamic_cast<StructType const*>(type.get()))
+			if (auto structType = dynamic_cast<StructType const*>(type))
 				for (auto const& member: structType->members(nullptr))
 				{
 					utils.pushZeroValue(*member.type);
 					utils.storeInMemoryDynamic(*member.type);
 				}
-			else if (auto arrayType = dynamic_cast<ArrayType const*>(type.get()))
+			else if (auto arrayType = dynamic_cast<ArrayType const*>(type))
 			{
 				solAssert(!arrayType->isDynamicallySized(), "");
 				if (arrayType->length() > 0)
@@ -1258,10 +1259,10 @@ void CompilerUtils::popAndJump(unsigned _toHeight, eth::AssemblyItem const& _jum
 	m_context.adjustStackOffset(amount);
 }
 
-unsigned CompilerUtils::sizeOnStack(vector<shared_ptr<Type const>> const& _variableTypes)
+unsigned CompilerUtils::sizeOnStack(vector<Type const*> const& _variableTypes)
 {
 	unsigned size = 0;
-	for (shared_ptr<Type const> const& type: _variableTypes)
+	for (Type const* const& type: _variableTypes)
 		size += type->sizeOnStack();
 	return size;
 }

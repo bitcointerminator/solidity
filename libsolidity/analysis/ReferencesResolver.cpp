@@ -129,8 +129,10 @@ bool ReferencesResolver::visit(ElementaryTypeName const& _typeName)
 			switch(*_typeName.stateMutability())
 			{
 				case StateMutability::Payable:
+					_typeName.annotation().type = TypeProvider::get().payableAddressType();
+					break;
 				case StateMutability::NonPayable:
-					_typeName.annotation().type = TypeProvider::get().addressType(*_typeName.stateMutability());
+					_typeName.annotation().type = TypeProvider::get().addressType();
 					break;
 				default:
 					m_errorReporter.typeError(

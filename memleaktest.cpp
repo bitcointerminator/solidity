@@ -17,7 +17,10 @@ int main(void)
 
 	solidity::CompilerStack compiler;
 	compiler.reset(false);
-	compiler.addSource("<input>", sourceCode);
+	StringMap sources;
+	sources["one.sol"] = sourceCode;
+	compiler.setSources(sources);
+	//compiler.setSources({"<input>", sourceCode});
 	compiler.compile();
 
 	return 0;

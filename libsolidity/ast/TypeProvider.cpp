@@ -8,7 +8,7 @@ using namespace solidity;
 template <size_t... N>
 constexpr std::array<IntegerType, sizeof...(N)> createIntegerTypes(IntegerType::Modifier _modifier, std::index_sequence<N...>)
 {
-	return dev::make_array<IntegerType>(IntegerType(static_cast<unsigned>(N) + 1, _modifier)...);
+	return dev::make_array<IntegerType>(IntegerType((static_cast<unsigned>(N) + 1) * 8, _modifier)...);
 }
 
 template <size_t... N>
@@ -18,8 +18,8 @@ constexpr std::array<FixedBytesType, sizeof...(N)> createFixedBytesTypes(std::in
 }
 
 TypeProvider::TypeProvider():
-	m_intM{createIntegerTypes(IntegerType::Modifier::Signed, std::make_index_sequence<256>{})},
-	m_uintM{createIntegerTypes(IntegerType::Modifier::Unsigned, std::make_index_sequence<256>{})},
+	m_intM{createIntegerTypes(IntegerType::Modifier::Signed, std::make_index_sequence<32>{})},
+	m_uintM{createIntegerTypes(IntegerType::Modifier::Unsigned, std::make_index_sequence<32>{})},
 	m_bytesM{createFixedBytesTypes(std::make_index_sequence<32>{})}
 {
 	// Empty tuple type is used so often that it deserves a special slot.
@@ -136,6 +136,14 @@ FunctionType const* TypeProvider::functionType(VariableDeclaration const& _varDe
 	return m_functionTypes.back().get();
 }
 
+FunctionType const* TypeProvider::functionType(EventDefinition const& _def)
+{
+	// TODO: reuse existing types meaningful?
+
+	m_functionTypes.emplace_back(make_unique<FunctionType>(_def));
+	return m_functionTypes.back().get();
+}
+
 FunctionType const* TypeProvider::functionType(FunctionTypeName const& _typeName)
 {
 	// TODO: reuse existing types meaningful?
@@ -191,6 +199,14 @@ FunctionType const* TypeProvider::functionType(
 		_bound
 	));
 	return m_functionTypes.back().get();
+}
+
+RationalNumberType const* TypeProvider::rationalNumberType(rational const& _value, Type const* _compatibleBytesType)
+{
+	// TODO: reuse existing types (We currently don't expose `rational m_value`.)
+
+	m_rationalNumberTypes.emplace_back(make_unique<RationalNumberType>(_value, _compatibleBytesType));
+	return m_rationalNumberTypes.back().get();
 }
 
 ArrayType const* TypeProvider::arrayType(DataLocation _location, bool _isString)

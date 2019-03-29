@@ -51,12 +51,21 @@ public:
 	/// Constructor for a fixed-size array type ("type[20]")
 	ArrayType const* arrayType(DataLocation _location, Type const* _baseType, u256 const& _length);
 
-	AddressType const* payableAddressType() const noexcept { return addressType(StateMutability::Payable); }
-	AddressType const* addressType() const noexcept { return addressType(StateMutability::NonPayable); }
-	AddressType const* addressType(StateMutability _mutability) const { return &m_addressType.at(static_cast<size_t>(_mutability)); }
+	AddressType const* payableAddressType() const noexcept { return &m_payableAddressType; }
+	AddressType const* addressType() const noexcept { return &m_addressType; }
 
-	IntegerType const* intType(unsigned m = 256) const { return &m_intM.at(m - 1); }
-	IntegerType const* uintType(unsigned m = 256) const { return &m_uintM.at(m - 1); }
+	IntegerType const* intType(unsigned m = 256) const
+	{
+		solAssert((m % 8) == 0, "");
+		return &m_intM.at(m / 8 - 1);
+	}
+
+	IntegerType const* uintType(unsigned m = 256) const
+	{
+		solAssert((m % 8) == 0, "");
+		return &m_uintM.at(m / 8 - 1);
+	}
+
 	IntegerType const* integerType(unsigned _bits = 256, IntegerType::Modifier _modifier = IntegerType::Modifier::Unsigned)
 	{
 		return _modifier == IntegerType::Modifier::Unsigned ? uintType(_bits) : intType(_bits);
@@ -174,15 +183,11 @@ private:
 	ArrayType m_stringMemoryType{DataLocation::Memory, true};
 	std::vector<std::unique_ptr<ArrayType>> m_arrayTypes{};
 
-	std::array<AddressType const, 4> const m_addressType{
-		AddressType{StateMutability::Pure},
-		AddressType{StateMutability::View},
-		AddressType{StateMutability::NonPayable},
-		AddressType{StateMutability::Payable},
-	};
+	AddressType const m_payableAddressType{StateMutability::Payable};
+	AddressType const m_addressType{StateMutability::NonPayable};
 
-	std::array<IntegerType, 256> m_intM;        // intM, int
-	std::array<IntegerType, 256> m_uintM;       // uintM, uint
+	std::array<IntegerType, 32> m_intM;        // intM, int
+	std::array<IntegerType, 32> m_uintM;       // uintM, uint
 	std::array<FixedBytesType, 32> m_bytesM;    // byte, bytesM
 
 	std::map<std::pair<unsigned, unsigned>, std::unique_ptr<FixedPointType>> m_fixedMxN;

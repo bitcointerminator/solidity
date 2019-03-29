@@ -264,7 +264,7 @@ public:
 
 	template <class T>
 	static unsigned sizeOnStack(std::vector<T> const& _variables);
-	static unsigned sizeOnStack(std::vector<std::shared_ptr<Type const>> const& _variableTypes);
+	static unsigned sizeOnStack(std::vector<Type const*> const& _variableTypes);
 
 	/// Helper function to shift top value on the stack to the left.
 	/// Stack pre: <value> <shift_by_bits>

@@ -180,7 +180,7 @@ TypePointers TypeChecker::typeCheckABIDecodeAndRetrieveReturnType(FunctionCall c
 			actualType = m_typeProvider.withLocationIfReference(DataLocation::Memory, actualType);
 			// We force address payable for address types.
 			if (actualType->category() == Type::Category::Address)
-				actualType = m_typeProvider.addressType(StateMutability::Payable);
+				actualType = m_typeProvider.payableAddressType();
 			solAssert(
 				!actualType->dataStoredIn(DataLocation::CallData) &&
 				!actualType->dataStoredIn(DataLocation::Storage),
@@ -1476,9 +1476,7 @@ TypePointer TypeChecker::typeCheckTypeConversionAndRetrieveReturnType(
 		if (resultType->category() == Type::Category::Address)
 		{
 			bool const payable = argType->isExplicitlyConvertibleTo(AddressType::addressPayable());
-			resultType = m_typeProvider.addressType(
-				payable ? StateMutability::Payable : StateMutability::NonPayable
-			);
+			resultType = payable ? m_typeProvider.payableAddressType() : m_typeProvider.addressType();
 		}
 	}
 	return resultType;
@@ -2375,7 +2373,7 @@ void TypeChecker::endVisit(Literal const& _literal)
 	if (_literal.looksLikeAddress())
 	{
 		// Assign type here if it even looks like an address. This prevents double errors for invalid addresses
-		_literal.annotation().type = m_typeProvider.addressType(StateMutability::Payable);
+		_literal.annotation().type = m_typeProvider.payableAddressType();
 
 		string msg;
 		if (_literal.valueWithoutUnderscores().length() != 42) // "0x" + 40 hex digits

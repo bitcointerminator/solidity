@@ -1262,7 +1262,7 @@ string ABIFunctions::abiDecodingFunction(Type const& _type, bool _fromMemory, bo
 	TypePointer decodingType = _type.decodingType();
 	solAssert(decodingType, "");
 
-	if (auto arrayType = dynamic_cast<ArrayType const*>(decodingType.get()))
+	if (auto arrayType = dynamic_cast<ArrayType const*>(decodingType))
 	{
 		if (arrayType->dataStoredIn(DataLocation::CallData))
 		{
@@ -1274,7 +1274,7 @@ string ABIFunctions::abiDecodingFunction(Type const& _type, bool _fromMemory, bo
 		else
 			return abiDecodingFunctionArray(*arrayType, _fromMemory);
 	}
-	else if (auto const* structType = dynamic_cast<StructType const*>(decodingType.get()))
+	else if (auto const* structType = dynamic_cast<StructType const*>(decodingType))
 	{
 		if (structType->dataStoredIn(DataLocation::CallData))
 		{
@@ -1284,7 +1284,7 @@ string ABIFunctions::abiDecodingFunction(Type const& _type, bool _fromMemory, bo
 		else
 			return abiDecodingFunctionStruct(*structType, _fromMemory);
 	}
-	else if (auto const* functionType = dynamic_cast<FunctionType const*>(decodingType.get()))
+	else if (auto const* functionType = dynamic_cast<FunctionType const*>(decodingType))
 		return abiDecodingFunctionFunctionType(*functionType, _fromMemory, _forUseOnStack);
 	else
 		return abiDecodingFunctionValueType(_type, _fromMemory);
