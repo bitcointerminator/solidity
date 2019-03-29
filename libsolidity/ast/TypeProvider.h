@@ -13,6 +13,15 @@ namespace dev
 namespace solidity
 {
 
+/**
+ * API for accessing the Solidity Type System.
+ *
+ * This is the Solidity Compiler's type provider. Use it to request for types. The caller does
+ * <b>not</b> own the types.
+ *
+ * It is not recommended to explicitly instanciate types unless you really know what and why
+ * you are doing it.
+ */
 class TypeProvider
 {
 public:
@@ -23,7 +32,12 @@ public:
 	TypeProvider& operator=(TypeProvider const&) = delete;
 	~TypeProvider() = default;
 
-	/// TODO This is just a quick'n'dirty workaround to get code changing. Properly pass a non-global instance ASAP.
+	/**
+	 * Global TypeProvider instance.
+	 *
+	 * This is only available initially and is going to be factored out in future PRs (TODO),
+	 * so we keep the initial PR lean and clean.
+	 */
 	static TypeProvider& get()
 	{
 		static TypeProvider _provider;
@@ -82,16 +96,10 @@ public:
 		return _modifier == FixedPointType::Modifier::Unsigned ? ufixedType(m, n) : fixedType(m, n);
 	}
 
-	StringLiteralType const* stringLiteralType(std::string const& literal)
-	{
-		auto i = m_stringLiteralTypes.find(literal);
-		if (i != m_stringLiteralTypes.end())
-			return &i->second;
-		else
-			return &m_stringLiteralTypes.emplace(literal, StringLiteralType{literal}).first->second;
-	}
+	StringLiteralType const* stringLiteralType(std::string const& literal);
 
 	TupleType const* tupleType(std::vector<Type const*>&& members);
+
 	TupleType const* emptyTupleType() const noexcept { return m_tupleTypes[0].get(); }
 
 	/// @returns a suitably simple type when a type is expected but an error has occured.
@@ -174,36 +182,26 @@ public:
 	MappingType const* mappingType(Type const* _keyType, Type const* _valueType);
 
 private:
-	BoolType m_boolType{};
-	InaccessibleDynamicType m_inaccessibleDynamicType{};
+	static BoolType const m_boolType;
+	static InaccessibleDynamicType const m_inaccessibleDynamicType;
 
-	ArrayType m_bytesType{DataLocation::Storage, false};
-	ArrayType m_bytesMemoryType{DataLocation::Memory, false};
-	ArrayType m_stringType{DataLocation::Storage, true};
-	ArrayType m_stringMemoryType{DataLocation::Memory, true};
+	static ArrayType const m_bytesType;
+	static ArrayType const m_bytesMemoryType;
+	static ArrayType const m_stringType;
+	static ArrayType const m_stringMemoryType;
+
+	static AddressType const m_payableAddressType;
+	static AddressType const m_addressType;
+	static std::array<IntegerType, 32> const m_intM;
+	static std::array<IntegerType, 32> const m_uintM;
+	static std::array<FixedBytesType, 32> const m_bytesM;
+	static std::array<MagicType, 4> const m_magicTypes;     ///< MagicType's except MetaType
+
+	std::map<std::pair<unsigned, unsigned>, std::unique_ptr<FixedPointType>> m_fixedMxN{};
+	std::map<std::pair<unsigned, unsigned>, std::unique_ptr<FixedPointType>> m_ufixedMxN{};
+	std::map<std::string, std::unique_ptr<StringLiteralType>> m_stringLiteralTypes{};
 	std::vector<std::unique_ptr<ArrayType>> m_arrayTypes{};
-
-	AddressType const m_payableAddressType{StateMutability::Payable};
-	AddressType const m_addressType{StateMutability::NonPayable};
-
-	std::array<IntegerType, 32> m_intM;        // intM, int
-	std::array<IntegerType, 32> m_uintM;       // uintM, uint
-	std::array<FixedBytesType, 32> m_bytesM;    // byte, bytesM
-
-	std::map<std::pair<unsigned, unsigned>, std::unique_ptr<FixedPointType>> m_fixedMxN;
-	std::map<std::pair<unsigned, unsigned>, std::unique_ptr<FixedPointType>> m_ufixedMxN;
-
-	std::array<MagicType, 4> m_magicTypes{
-		MagicType{MagicType::Kind::Block},
-		MagicType{MagicType::Kind::Message},
-		MagicType{MagicType::Kind::Transaction},
-		MagicType{MagicType::Kind::ABI}
-		// MetaType is stored seperately
-	};
-
 	std::vector<std::unique_ptr<MagicType>> m_metaTypes{};
-
-	std::map<std::string, StringLiteralType> m_stringLiteralTypes{}; // TODO: unique_ptr
 	std::vector<std::unique_ptr<TupleType>> m_tupleTypes{};
 	std::vector<std::unique_ptr<ReferenceType>> m_referenceTypes{};
 	std::vector<std::unique_ptr<FunctionType>> m_functionTypes{};

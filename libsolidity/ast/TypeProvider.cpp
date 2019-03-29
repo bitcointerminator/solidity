@@ -17,10 +17,26 @@ constexpr std::array<FixedBytesType, sizeof...(N)> createFixedBytesTypes(std::in
 	return dev::make_array<FixedBytesType>(FixedBytesType(static_cast<unsigned>(N) + 1)...);
 }
 
-TypeProvider::TypeProvider():
-	m_intM{createIntegerTypes(IntegerType::Modifier::Signed, std::make_index_sequence<32>{})},
-	m_uintM{createIntegerTypes(IntegerType::Modifier::Unsigned, std::make_index_sequence<32>{})},
-	m_bytesM{createFixedBytesTypes(std::make_index_sequence<32>{})}
+BoolType const TypeProvider::m_boolType{};
+InaccessibleDynamicType const TypeProvider::m_inaccessibleDynamicType{};
+ArrayType const TypeProvider::m_bytesType{DataLocation::Storage, false};
+ArrayType const TypeProvider::m_bytesMemoryType{DataLocation::Memory, false};
+ArrayType const TypeProvider::m_stringType{DataLocation::Storage, true};
+ArrayType const TypeProvider::m_stringMemoryType{DataLocation::Memory, true};
+AddressType const TypeProvider::m_payableAddressType{StateMutability::Payable};
+AddressType const TypeProvider::m_addressType{StateMutability::NonPayable};
+std::array<IntegerType, 32> const TypeProvider::m_intM{createIntegerTypes(IntegerType::Modifier::Signed, std::make_index_sequence<32>{})};
+std::array<IntegerType, 32> const TypeProvider::m_uintM{createIntegerTypes(IntegerType::Modifier::Unsigned, std::make_index_sequence<32>{})};
+std::array<FixedBytesType, 32> const TypeProvider::m_bytesM{createFixedBytesTypes(std::make_index_sequence<32>{})};
+std::array<MagicType, 4> const TypeProvider::m_magicTypes{
+	MagicType{MagicType::Kind::Block},
+	MagicType{MagicType::Kind::Message},
+	MagicType{MagicType::Kind::Transaction},
+	MagicType{MagicType::Kind::ABI}
+	// MetaType is stored seperately
+};
+
+TypeProvider::TypeProvider()
 {
 	// Empty tuple type is used so often that it deserves a special slot.
 	m_tupleTypes.emplace_back(make_unique<TupleType>());
@@ -71,6 +87,15 @@ Type const* TypeProvider::fromElementaryTypeName(ElementaryTypeNameToken const& 
 			"Unable to convert elementary typename " + _type.toString() + " to type."
 		);
 	}
+}
+
+StringLiteralType const* TypeProvider::stringLiteralType(std::string const& literal)
+{
+	auto i = m_stringLiteralTypes.find(literal);
+	if (i != m_stringLiteralTypes.end())
+		return i->second.get();
+	else
+		return m_stringLiteralTypes.emplace(literal, std::make_unique<StringLiteralType>(literal)).first->second.get();
 }
 
 FixedPointType const* TypeProvider::fixedType(unsigned m, unsigned n) {
