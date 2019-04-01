@@ -70,25 +70,25 @@ Type const* TypeProvider::fromElementaryTypeName(ElementaryTypeNameToken const& 
 	switch (_type.token())
 	{
 	case Token::IntM:
-		return intType(m);
+		return integerType(m, IntegerType::Modifier::Signed);
 	case Token::UIntM:
-		return uintType(m);
+		return integerType(m, IntegerType::Modifier::Unsigned);
 	case Token::Byte:
 		return byteType();
 	case Token::BytesM:
 		return fixedBytesType(m);
 	case Token::FixedMxN:
-		return fixedType(m, n);
+		return fixedPointType(m, n, FixedPointType::Modifier::Signed);
 	case Token::UFixedMxN:
-		return ufixedType(m, n);
+		return fixedPointType(m, n, FixedPointType::Modifier::Unsigned);
 	case Token::Int:
-		return intType();
+		return integerType(256, IntegerType::Modifier::Signed);
 	case Token::UInt:
-		return uintType();
+		return integerType(256, IntegerType::Modifier::Unsigned);
 	case Token::Fixed:
-		return fixedType();
+		return fixedPointType(128, 18, FixedPointType::Modifier::Signed);
 	case Token::UFixed:
-		return ufixedType();
+		return fixedPointType(128, 18, FixedPointType::Modifier::Unsigned);
 	case Token::Address:
 		return addressType();
 	case Token::Bool:
@@ -114,29 +114,17 @@ StringLiteralType const* TypeProvider::stringLiteralType(std::string const& lite
 		return m_stringLiteralTypes.emplace(literal, std::make_unique<StringLiteralType>(literal)).first->second.get();
 }
 
-FixedPointType const* TypeProvider::fixedType(unsigned m, unsigned n) {
-	auto i = m_fixedMxN.find(std::make_pair(m, n));
-	if (i != m_fixedMxN.end())
+FixedPointType const* TypeProvider::fixedPointType(unsigned m, unsigned n, FixedPointType::Modifier _modifier)
+{
+	auto& map = _modifier == FixedPointType::Modifier::Unsigned ? m_ufixedMxN : m_fixedMxN;
+
+	auto i = map.find(make_pair(m, n));
+	if (i != map.end())
 		return i->second.get();
 
-	return m_fixedMxN.emplace(
-		std::make_pair(m, n),
-		std::make_unique<FixedPointType>(
-			m,
-			n,
-			FixedPointType::Modifier::Signed
-		)
-	).first->second.get();
-}
-
-FixedPointType const* TypeProvider::ufixedType(unsigned m, unsigned n) {
-	auto i = m_fixedMxN.find(std::make_pair(m, n));
-	if (i != m_fixedMxN.end())
-		return i->second.get();
-
-	return m_fixedMxN.emplace(
-		std::make_pair(m, n),
-		std::make_unique<FixedPointType>(
+	return map.emplace(
+		make_pair(m, n),
+		make_unique<FixedPointType>(
 			m,
 			n,
 			FixedPointType::Modifier::Unsigned

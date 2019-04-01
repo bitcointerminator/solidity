@@ -509,7 +509,7 @@ MemberList::MemberMap AddressType::nativeMembers(ContractDefinition const*) cons
 {
 	TypeProvider& typeProvider = TypeProvider::get();
 	MemberList::MemberMap members = {
-		{"balance", typeProvider.uintType(256)},
+		{"balance", typeProvider.integerType(256)},
 		{"call", typeProvider.functionType(strings{"bytes memory"}, strings{"bool", "bytes memory"}, FunctionType::Kind::BareCall, false, StateMutability::Payable)},
 		{"callcode", typeProvider.functionType(strings{"bytes memory"}, strings{"bool", "bytes memory"}, FunctionType::Kind::BareCallCode, false, StateMutability::Payable)},
 		{"delegatecall", typeProvider.functionType(strings{"bytes memory"}, strings{"bool", "bytes memory"}, FunctionType::Kind::BareDelegateCall, false, StateMutability::NonPayable)},
@@ -1437,7 +1437,7 @@ TypeResult FixedBytesType::binaryOperatorResult(Token _operator, Type const* _ot
 
 MemberList::MemberMap FixedBytesType::nativeMembers(ContractDefinition const*) const
 {
-	return MemberList::MemberMap{MemberList::Member{"length", TypeProvider::get().uintType(8)}};
+	return MemberList::MemberMap{MemberList::Member{"length", TypeProvider::get().integerType(8)}};
 }
 
 string FixedBytesType::richIdentifier() const
@@ -1833,7 +1833,7 @@ MemberList::MemberMap ArrayType::nativeMembers(ContractDefinition const*) const
 TypePointer ArrayType::encodingType() const
 {
 	if (location() == DataLocation::Storage)
-		return TypeProvider::get().uintType(256);
+		return TypeProvider::get().integerType(256);
 	else
 		return TypeProvider::get().withLocation(this, DataLocation::Memory, true);
 }
@@ -1841,7 +1841,7 @@ TypePointer ArrayType::encodingType() const
 TypePointer ArrayType::decodingType() const
 {
 	if (location() == DataLocation::Storage)
-		return TypeProvider::get().uintType(256);
+		return TypeProvider::get().integerType(256);
 	else
 		return this;
 }

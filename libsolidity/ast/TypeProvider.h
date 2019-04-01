@@ -84,33 +84,16 @@ public:
 	AddressType const* payableAddressType() const noexcept { return &m_payableAddressType; }
 	AddressType const* addressType() const noexcept { return &m_addressType; }
 
-	IntegerType const* intType(unsigned m = 256) const
-	{
-		solAssert((m % 8) == 0, "");
-		return &m_intM.at(m / 8 - 1);
-	}
-
-	IntegerType const* uintType(unsigned m = 256) const
-	{
-		solAssert((m % 8) == 0, "");
-		return &m_uintM.at(m / 8 - 1);
-	}
-
 	IntegerType const* integerType(unsigned _bits = 256, IntegerType::Modifier _modifier = IntegerType::Modifier::Unsigned)
 	{
-		return _modifier == IntegerType::Modifier::Unsigned ? uintType(_bits) : intType(_bits);
+		solAssert((_bits % 8) == 0, "");
+		if (_modifier == IntegerType::Modifier::Unsigned)
+			return &m_uintM.at(_bits / 8 - 1);
+		else
+			return &m_intM.at(_bits / 8 - 1);
 	}
 
-	FixedPointType const* fixedType() { return fixedType(128, 18); }
-	FixedPointType const* fixedType(unsigned m, unsigned n);
-
-	FixedPointType const* ufixedType() { return ufixedType(128, 18); }
-	FixedPointType const* ufixedType(unsigned m, unsigned n);
-
-	FixedPointType const* fixedPointType(unsigned m, unsigned n, FixedPointType::Modifier _modifier)
-	{
-		return _modifier == FixedPointType::Modifier::Unsigned ? ufixedType(m, n) : fixedType(m, n);
-	}
+	FixedPointType const* fixedPointType(unsigned m, unsigned n, FixedPointType::Modifier _modifier);
 
 	StringLiteralType const* stringLiteralType(std::string const& literal);
 
