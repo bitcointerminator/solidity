@@ -368,14 +368,14 @@ TypePointer Type::commonType(Type const* _a, Type const* _b)
 
 MemberList const& Type::members(ContractDefinition const* _currentScope) const
 {
-	if (!m_members.count(_currentScope))
+	if (!m_members[_currentScope])
 	{
 		MemberList::MemberMap members = nativeMembers(_currentScope);
 		if (_currentScope)
 			members += boundFunctions(*this, *_currentScope);
-		m_members.emplace(_currentScope, MemberList{move(members)});
+		m_members[_currentScope] = unique_ptr<MemberList>(new MemberList(move(members)));
 	}
-	return *m_members.at(_currentScope);
+	return *m_members[_currentScope];
 }
 
 TypePointer Type::fullEncodingType(bool _inLibraryCall, bool _encoderV2, bool) const

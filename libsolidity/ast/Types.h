@@ -163,7 +163,13 @@ static_assert(std::is_nothrow_move_constructible<MemberList>::value, "MemberList
 class Type
 {
 public:
+	Type() = default;
+	Type(Type const&) = delete;
+	Type(Type&&) = default;
+	Type& operator=(Type const&) = delete;
+	Type& operator=(Type&&) = default;
 	virtual ~Type() = default;
+
 	enum class Category
 	{
 		Address, Integer, RationalNumber, StringLiteral, Bool, FixedPoint, Array,
