@@ -34,6 +34,13 @@ constexpr std::array<FixedBytesType, sizeof...(N)> createFixedBytesTypes(std::in
 	return makeArray<FixedBytesType>(FixedBytesType(static_cast<unsigned>(N) + 1)...);
 }
 
+template <typename T, typename... Args>
+inline T const* appendAndRetrieve(std::vector<std::unique_ptr<T>>& _vector, Args && ... _args)
+{
+	_vector.emplace_back(make_unique<T>(std::forward<Args>(_args)...));
+	return _vector.back().get();
+}
+
 BoolType const TypeProvider::m_boolType{};
 InaccessibleDynamicType const TypeProvider::m_inaccessibleDynamicType{};
 ArrayType const TypeProvider::m_bytesType{DataLocation::Storage, false};
@@ -135,8 +142,7 @@ FixedPointType const* TypeProvider::fixedPointType(unsigned m, unsigned n, Fixed
 
 TupleType const* TypeProvider::tupleType(std::vector<Type const*>&& members)
 {
-	m_tupleTypes.emplace_back(make_unique<TupleType>(move(members)));
-	return m_tupleTypes.back().get();
+	return appendAndRetrieve(m_tupleTypes, move(members));
 }
 
 ReferenceType const* TypeProvider::withLocation(ReferenceType const* _type, DataLocation _location, bool _isPointer)
@@ -152,34 +158,22 @@ ReferenceType const* TypeProvider::withLocation(ReferenceType const* _type, Data
 
 FunctionType const* TypeProvider::functionType(FunctionDefinition const& _function, bool _isInternal)
 {
-	// TODO: reuse existing types meaningful?
-
-	m_functionTypes.emplace_back(make_unique<FunctionType>(_function, _isInternal));
-	return m_functionTypes.back().get();
+	return appendAndRetrieve(m_functionTypes, _function, _isInternal);
 }
 
 FunctionType const* TypeProvider::functionType(VariableDeclaration const& _varDecl)
 {
-	// TODO: reuse existing types meaningful?
-
-	m_functionTypes.emplace_back(make_unique<FunctionType>(_varDecl));
-	return m_functionTypes.back().get();
+	return appendAndRetrieve(m_functionTypes, _varDecl);
 }
 
 FunctionType const* TypeProvider::functionType(EventDefinition const& _def)
 {
-	// TODO: reuse existing types meaningful?
-
-	m_functionTypes.emplace_back(make_unique<FunctionType>(_def));
-	return m_functionTypes.back().get();
+	return appendAndRetrieve(m_functionTypes, _def);
 }
 
 FunctionType const* TypeProvider::functionType(FunctionTypeName const& _typeName)
 {
-	// TODO: reuse existing types meaningful?
-
-	m_functionTypes.emplace_back(make_unique<FunctionType>(_typeName));
-	return m_functionTypes.back().get();
+	return appendAndRetrieve(m_functionTypes, _typeName);
 }
 
 FunctionType const* TypeProvider::functionType(
@@ -190,13 +184,10 @@ FunctionType const* TypeProvider::functionType(
 	StateMutability _stateMutability
 )
 {
-	// TODO: reuse existing types meaningful?
-
-	m_functionTypes.emplace_back(make_unique<FunctionType>(
+	return appendAndRetrieve(m_functionTypes,
 		_parameterTypes, _returnParameterTypes,
 		_kind, _arbitraryParameters, _stateMutability
-	));
-	return m_functionTypes.back().get();
+	);
 }
 
 FunctionType const* TypeProvider::functionType(
@@ -213,9 +204,7 @@ FunctionType const* TypeProvider::functionType(
 	bool _bound
 )
 {
-	// TODO: reuse existing types meaningful?
-
-	m_functionTypes.emplace_back(make_unique<FunctionType>(
+	return appendAndRetrieve(m_functionTypes,
 		_parameterTypes,
 		_returnParameterTypes,
 		_parameterNames,
@@ -227,40 +216,27 @@ FunctionType const* TypeProvider::functionType(
 		_gasSet,
 		_valueSet,
 		_bound
-	));
-	return m_functionTypes.back().get();
+	);
 }
 
 RationalNumberType const* TypeProvider::rationalNumberType(rational const& _value, Type const* _compatibleBytesType)
 {
-	// TODO: reuse existing types (We currently don't expose `rational m_value`.)
-
-	m_rationalNumberTypes.emplace_back(make_unique<RationalNumberType>(_value, _compatibleBytesType));
-	return m_rationalNumberTypes.back().get();
+	return appendAndRetrieve(m_rationalNumberTypes, _value, _compatibleBytesType);
 }
 
 ArrayType const* TypeProvider::arrayType(DataLocation _location, bool _isString)
 {
-	// TODO: reuse existing types
-
-	m_arrayTypes.emplace_back(make_unique<ArrayType>(_location, _isString));
-	return m_arrayTypes.back().get();
+	return appendAndRetrieve(m_arrayTypes, _location, _isString);
 }
 
 ArrayType const* TypeProvider::arrayType(DataLocation _location, Type const* _baseType)
 {
-	// TODO: reuse existing types
-
-	m_arrayTypes.emplace_back(make_unique<ArrayType>(_location, _baseType));
-	return m_arrayTypes.back().get();
+	return appendAndRetrieve(m_arrayTypes, _location, _baseType);
 }
 
 ArrayType const* TypeProvider::arrayType(DataLocation _location, Type const* _baseType, u256 const& _length)
 {
-	// TODO: reuse existing types
-
-	m_arrayTypes.emplace_back(make_unique<ArrayType>(_location, _baseType, _length));
-	return m_arrayTypes.back().get();
+	return appendAndRetrieve(m_arrayTypes, _location, _baseType, _length);
 }
 
 ContractType const* TypeProvider::contractType(ContractDefinition const& _contractDef, bool _isSuper)
@@ -269,8 +245,7 @@ ContractType const* TypeProvider::contractType(ContractDefinition const& _contra
 		if (&ct->contractDefinition() == &_contractDef && ct->isSuper() == _isSuper)
 			return ct.get();
 
-	m_contractTypes.emplace_back(make_unique<ContractType>(_contractDef, _isSuper));
-	return m_contractTypes.back().get();
+	return appendAndRetrieve(m_contractTypes, _contractDef, _isSuper);
 }
 
 EnumType const* TypeProvider::enumType(EnumDefinition const& _enumDef)
@@ -279,14 +254,12 @@ EnumType const* TypeProvider::enumType(EnumDefinition const& _enumDef)
 		if (type->enumDefinition() == _enumDef)
 			return type.get();
 
-	m_enumTypes.emplace_back(make_unique<EnumType>(_enumDef));
-	return m_enumTypes.back().get();
+	return appendAndRetrieve(m_enumTypes, _enumDef);
 }
 
 ModuleType const* TypeProvider::moduleType(SourceUnit const& _source)
 {
-	m_moduleTypes.emplace_back(make_unique<ModuleType>(_source));
-	return m_moduleTypes.back().get();
+	return appendAndRetrieve(m_moduleTypes, _source);
 }
 
 TypeType const* TypeProvider::typeType(Type const* _actualType)
@@ -295,8 +268,7 @@ TypeType const* TypeProvider::typeType(Type const* _actualType)
 		if (*type->actualType() == *_actualType)
 			return type.get();
 
-	m_typeTypes.emplace_back(make_unique<TypeType>(_actualType));
-	return m_typeTypes.back().get();
+	return appendAndRetrieve(m_typeTypes, _actualType);
 }
 
 StructType const* TypeProvider::structType(StructDefinition const& _struct, DataLocation _location)
@@ -305,16 +277,12 @@ StructType const* TypeProvider::structType(StructDefinition const& _struct, Data
 		if (type->structDefinition() == _struct && type->location() == _location)
 			return type.get();
 
-	m_structTypes.emplace_back(make_unique<StructType>(_struct, _location));
-	return m_structTypes.back().get();
+	return appendAndRetrieve(m_structTypes, _struct, _location);
 }
 
 ModifierType const* TypeProvider::modifierType(ModifierDefinition const& _def)
 {
-	// TODO: reuse existing type if equal.
-
-	m_modifierTypes.emplace_back(make_unique<ModifierType>(_def));
-	return m_modifierTypes.back().get();
+	return appendAndRetrieve(m_modifierTypes, _def);
 }
 
 MagicType const* TypeProvider::magicType(MagicType::Kind _kind)
@@ -326,11 +294,7 @@ MagicType const* TypeProvider::magicType(MagicType::Kind _kind)
 MagicType const* TypeProvider::metaType(Type const* _type)
 {
 	solAssert(_type && _type->category() == Type::Category::Contract, "Only contracts supported for now.");
-
-	// TODO: reuse existing type if available.
-
-	m_metaTypes.emplace_back(make_unique<MagicType>(_type));
-	return m_metaTypes.back().get();
+	return appendAndRetrieve(m_metaTypes, _type);
 }
 
 MappingType const* TypeProvider::mappingType(Type const* _keyType, Type const* _valueType)
@@ -339,6 +303,5 @@ MappingType const* TypeProvider::mappingType(Type const* _keyType, Type const* _
 		if (*type->keyType() == *_keyType && *type->valueType() == *_valueType)
 			return type.get();
 
-	m_mappingTypes.emplace_back(make_unique<MappingType>(_keyType, _valueType));
-	return m_mappingTypes.back().get();
+	return appendAndRetrieve(m_mappingTypes, _keyType, _valueType);
 }
