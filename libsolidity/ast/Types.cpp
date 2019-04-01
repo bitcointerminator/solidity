@@ -1276,7 +1276,7 @@ IntegerType const* RationalNumberType::integerType() const
 	if (negative) // convert to positive number of same bit requirements
 		value = ((0 - value) - 1) << 1;
 	if (value > u256(-1))
-		return TypeProvider::get().integerType();
+		return nullptr;
 	else
 		return TypeProvider::get().integerType(
 			max(bytesRequired(value), 1u) * 8,
