@@ -127,7 +127,7 @@ FixedPointType const* TypeProvider::fixedPointType(unsigned m, unsigned n, Fixed
 		make_unique<FixedPointType>(
 			m,
 			n,
-			FixedPointType::Modifier::Unsigned
+			_modifier
 		)
 	).first->second.get();
 }
