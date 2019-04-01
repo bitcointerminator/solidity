@@ -660,7 +660,7 @@ TypeResult IntegerType::binaryOperatorResult(Token _operator, Type const* _other
 		if (Token::Exp == _operator && intType->isSigned())
 			return TypeResult::err("Exponentiation is not allowed for signed integer types.");
 	}
-	else if (auto fixType = dynamic_cast<FixedPointType const*>(commonType))
+	else if (dynamic_cast<FixedPointType const*>(commonType))
 		if (Token::Exp == _operator)
 			return nullptr;
 	return commonType;
