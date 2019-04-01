@@ -36,7 +36,7 @@ namespace solidity
  * This is the Solidity Compiler's type provider. Use it to request for types. The caller does
  * <b>not</b> own the types.
  *
- * It is not recommended to explicitly instanciate types unless you really know what and why
+ * It is not recommended to explicitly instantiate types unless you really know what and why
  * you are doing it.
  */
 class TypeProvider
@@ -102,7 +102,7 @@ public:
 
 	TupleType const* emptyTupleType() const noexcept { return m_tupleTypes[0].get(); }
 
-	/// @returns a suitably simple type when a type is expected but an error has occured.
+	/// @returns a suitably simple type when a type is expected but an error has occurred.
 	TupleType const* errorType() const noexcept { return emptyTupleType(); }
 
 	ReferenceType const* withLocation(ReferenceType const* _type, DataLocation _location, bool _isPointer);

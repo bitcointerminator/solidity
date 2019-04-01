@@ -57,7 +57,7 @@ std::array<MagicType, 4> const TypeProvider::m_magicTypes{
 	MagicType{MagicType::Kind::Message},
 	MagicType{MagicType::Kind::Transaction},
 	MagicType{MagicType::Kind::ABI}
-	// MetaType is stored seperately
+	// MetaType is stored separately
 };
 
 TypeProvider::TypeProvider()
@@ -289,7 +289,7 @@ ModifierType const* TypeProvider::modifierType(ModifierDefinition const& _def)
 
 MagicType const* TypeProvider::magicType(MagicType::Kind _kind)
 {
-	solAssert(_kind != MagicType::Kind::MetaType, "MetaType is handled seperately");
+	solAssert(_kind != MagicType::Kind::MetaType, "MetaType is handled separately");
 	return &m_magicTypes.at(static_cast<size_t>(_kind));
 }
 
