@@ -42,6 +42,15 @@ VariableUsage::VariableUsage(ASTNode const& _node)
 			if (FunctionDefinition const* funDef = SMTChecker::inlinedFunctionCallToDefinition(*funCall))
 				m_children[&n].push_back(funDef);
 		}
+		else if (auto modifierInv = dynamic_cast<ModifierInvocation const*>(&n))
+		{
+			// TODO Calls to constructors of base classes also go in here.
+			auto modifierDef = dynamic_cast<ModifierDefinition const*>(
+				modifierInv->name()->annotation().referencedDeclaration
+			);
+			if (modifierDef)
+				m_children[&n].push_back(modifierDef);
+		}
 		return true;
 	};
 	auto edgeFun = [&](ASTNode const& _parent, ASTNode const& _child)
@@ -60,7 +69,7 @@ vector<VariableDeclaration const*> VariableUsage::touchedVariables(ASTNode const
 		return {};
 
 	set<VariableDeclaration const*> touched;
-	set<ASTNode const*> visitedFunctions;
+	set<ASTNode const*> visitedCallables;
 	vector<ASTNode const*> toVisit;
 	toVisit.push_back(&_node);
 
@@ -69,17 +78,17 @@ vector<VariableDeclaration const*> VariableUsage::touchedVariables(ASTNode const
 		ASTNode const* n = toVisit.back();
 		toVisit.pop_back();
 
-		if (auto funDef = dynamic_cast<FunctionDefinition const*>(n))
-			visitedFunctions.insert(funDef);
+		if (dynamic_cast<CallableDeclaration const*>(n))
+			visitedCallables.insert(n);
 
 		if (m_children.count(n))
 		{
 			solAssert(!m_touchedVariable.count(n), "");
 			for (auto const& child: m_children.at(n))
-				if (!visitedFunctions.count(child))
+				if (!visitedCallables.count(child))
 					toVisit.push_back(child);
 		}
-		else
+		else if (!dynamic_cast<CallableDeclaration const*>(n))
 		{
 			solAssert(m_touchedVariable.count(n), "");
 			touched.insert(m_touchedVariable.at(n));
