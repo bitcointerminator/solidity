@@ -819,7 +819,7 @@ TypePointer RationalNumberType::forLiteral(Literal const& _literal)
 	tuple<bool, rational> validLiteral = isValidLiteral(_literal);
 	if (get<0>(validLiteral))
 	{
-		TypePointer compatibleBytesType;
+		TypePointer compatibleBytesType = nullptr;
 		if (_literal.isHexNumber())
 		{
 			size_t const digitCount = _literal.valueWithoutUnderscores().length() - 2;

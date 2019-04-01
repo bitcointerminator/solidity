@@ -1081,7 +1081,7 @@ bool TypeChecker::visit(Conditional const& _conditional)
 	TypePointer trueType = type(_conditional.trueExpression())->mobileType();
 	TypePointer falseType = type(_conditional.falseExpression())->mobileType();
 
-	TypePointer commonType;
+	TypePointer commonType = nullptr;
 
 	if (!trueType)
 		m_errorReporter.typeError(_conditional.trueExpression().location(), "Invalid mobile type in true expression.");
@@ -1236,7 +1236,7 @@ bool TypeChecker::visit(TupleExpression const& _tuple)
 	else
 	{
 		bool isPure = true;
-		TypePointer inlineArrayType;
+		TypePointer inlineArrayType = nullptr;
 
 		for (size_t i = 0; i < components.size(); ++i)
 		{
@@ -1832,7 +1832,7 @@ bool TypeChecker::visit(FunctionCall const& _functionCall)
 
 	// Determine function call kind and function type for this FunctionCall node
 	FunctionCallAnnotation& funcCallAnno = _functionCall.annotation();
-	FunctionTypePointer functionType;
+	FunctionTypePointer functionType = nullptr;
 
 	// Determine and assign function call kind, purity and function type for this FunctionCall node
 	switch (expressionType->category())
