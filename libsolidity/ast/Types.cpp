@@ -375,7 +375,7 @@ MemberList const& Type::members(ContractDefinition const* _currentScope) const
 			members += boundFunctions(*this, *_currentScope);
 		m_members.emplace(_currentScope, MemberList{move(members)});
 	}
-	return m_members.at(_currentScope);
+	return *m_members.at(_currentScope);
 }
 
 TypePointer Type::fullEncodingType(bool _inLibraryCall, bool _encoderV2, bool) const

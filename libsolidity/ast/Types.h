@@ -121,13 +121,6 @@ public:
 	MemberList& operator=(MemberList&&) = default;
 	~MemberList() = default;
 
-	// MemberList() = default;
-	// MemberList(MemberList&&) = default;
-	// MemberList(MemberList const&) = delete;
-	// MemberList& operator=(MemberList&&) = default;
-	// MemberList& operator=(MemberList const&) = delete;
-	// ~MemberList() = default;
-
 	void combine(MemberList const& _other);
 	TypePointer memberType(std::string const& _name) const
 	{
@@ -345,7 +338,7 @@ protected:
 	}
 
 	/// List of member types (parameterised by scape), will be lazy-initialized.
-	mutable std::map<ContractDefinition const*, MemberList> m_members;
+	mutable std::map<ContractDefinition const*, std::unique_ptr<MemberList>> m_members;
 };
 
 /**

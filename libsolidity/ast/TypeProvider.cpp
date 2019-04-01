@@ -221,7 +221,9 @@ FunctionType const* TypeProvider::functionType(
 
 RationalNumberType const* TypeProvider::rationalNumberType(rational const& _value, Type const* _compatibleBytesType)
 {
-	return appendAndRetrieve(m_rationalNumberTypes, _value, _compatibleBytesType);
+	//return appendAndRetrieve(m_rationalNumberTypes, _value, _compatibleBytesType);
+	m_rationalNumberTypes.emplace_back(make_unique<RationalNumberType>(_value, _compatibleBytesType));
+	return m_rationalNumberTypes.back().get();
 }
 
 ArrayType const* TypeProvider::arrayType(DataLocation _location, bool _isString)
