@@ -131,7 +131,7 @@ public:
 	void combine(MemberList const& _other);
 	TypePointer memberType(std::string const& _name) const
 	{
-		TypePointer type;
+		TypePointer type = nullptr;
 		for (auto const& it: m_memberTypes)
 			if (it.name == _name)
 			{
@@ -871,7 +871,7 @@ private:
 	/// If true, this is a special "super" type of m_contract containing only members that m_contract inherited
 	bool m_super = false;
 	/// Type of the constructor, @see constructorType. Lazily initialized.
-	mutable FunctionType const* m_constructorType;
+	mutable FunctionType const* m_constructorType = nullptr;
 };
 
 /**
