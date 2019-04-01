@@ -101,12 +101,6 @@ public:
 		{
 		}
 
-		// Member(Member const&) = default;
-		// Member(Member&&) = default;
-		// Member& operator=(Member const&) = default;
-		// Member& operator=(Member&&) = default;
-		// ~Member() = default;
-
 		std::string name;
 		Type const* type;
 		Declaration const* declaration = nullptr;
