@@ -808,7 +808,10 @@ string ABIFunctions::abiEncodingFunctionSimpleArray(
 		bool dynamic = _to.isDynamicallyEncoded();
 		bool dynamicBase = _to.baseType()->isDynamicallyEncoded();
 		bool const usesTail = dynamicBase && !_options.dynamicInplace;
-		string elementValues = m_utils.suffixedVariableNameList("elementValue", 0, numVariablesForType(*_from.baseType(), _options));
+		EncodingOptions subOptions(_options);
+		subOptions.encodeFunctionFromStack = false;
+		subOptions.padded = true;
+		string elementValues = m_utils.suffixedVariableNameList("elementValue", 0, numVariablesForType(*_from.baseType(), subOptions));
 		Whiskers templ(
 			usesTail ?
 			R"(
@@ -869,9 +872,6 @@ string ABIFunctions::abiEncodingFunctionSimpleArray(
 		templ("storeLength", arrayStoreLengthForEncodingFunction(_to, _options));
 		templ("dataAreaFun", m_utils.arrayDataAreaFunction(_from));
 
-		EncodingOptions subOptions(_options);
-		subOptions.encodeFunctionFromStack = false;
-		subOptions.padded = true;
 		templ("encodeToMemoryFun", abiEncodeAndReturnUpdatedPosFunction(*_from.baseType(), *_to.baseType(), subOptions));
 		switch (_from.location())
 		{
@@ -1195,7 +1195,7 @@ string ABIFunctions::abiEncodingFunctionStruct(
 			// Like with arrays, struct members are always padded.
 			subOptions.padded = true;
 
-			string memberValues = m_utils.suffixedVariableNameList("memberValue", 0, numVariablesForType(*memberTypeFrom, _options));
+			string memberValues = m_utils.suffixedVariableNameList("memberValue", 0, numVariablesForType(*memberTypeFrom, subOptions));
 			members.back()["memberValues"] = memberValues;
 
 			string encode;
